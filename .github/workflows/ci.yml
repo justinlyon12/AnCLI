@@ -9,4 +9,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.4'
+      - uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          
       - run: make ci
