@@ -64,10 +64,12 @@ Default sandbox hardening:
 - Created /ancli/docs to hold this context and simplied README.md to just include the vision.
 - Added additional repo structure via:
     ```
-    mkdir -p cmd/flashcli internal/{storage,scheduler,sandbox/podman}
+    mkdir -p cmd/flashcli internal/{storage,scheduler,sandbox/podman} docs bin
     touch cmd/flashcli/main.go docs/{context.md,journal.md}
     ```
 - Created placeholder main func in /ancli/cmd/flashcli
+- Created makefile with `help`, `build`, `test`, `lint`, `tidy` and targets for CI
+
 
 
 <!--  
