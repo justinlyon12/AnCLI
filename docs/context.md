@@ -69,7 +69,13 @@ Default sandbox hardening:
     ```
 - Created placeholder main func in /ancli/cmd/flashcli
 - Created makefile with `help`, `build`, `test`, `lint`, `tidy` and targets for CI
-
+- Added Github Actions CI:
+    - made directory and CI file via:
+        ```
+        mkdir -p .github/workflows
+        touch .github/workflows/ci.yml
+        ```
+    - added `make ci` to `/ancli/.github/workflows/ci.yml` to ensure that full test, lint, and build suite is run on every push or pull_request
 
 
 <!--  
