@@ -96,13 +96,35 @@ Next: prototype rootless sandbox runner.
         touch .github/workflows/ci.yml
         ```
     - added `make ci` to `/ancli/.github/workflows/ci.yml` to ensure that full test, lint, and build suite is run on every push or pull_request
+- Installed golangci-lint via `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`
+- Verified could build via my Makefile and binary could be run (`./bin/flashcli`)
 
+Tree: 
+.
+├── bin
+│   └── flashcli
+├── cmd
+│   └── flashcli
+│       └── main.go
+├── docs
+│   ├── context.md
+│   └── journal.md
+├── go.mod
+├── internal
+│   ├── sandbox
+│   │   └── podman
+│   ├── scheduler
+│   └── storage
+├── LICENSE
+├── Makefile
+└── README.md
 
-<!--  
-Template for future entries:
+#### 2025-08-06
+- Implemented FSRS scheduler in `internal/scheduler/fsrs.go` using `go-fsrs/v3`
+- Changed from auto-grading to manual `Again|Hard|Good|Easy` ratings per FSRS philosophy
+- Created comprehensive unit tests for `fsrs.go` achieving 100% coverage
+- Next: Demo & SQLite storage layer
 
-### 2025-07-09  
-Finished wiring FSRS unit tests; pinned `go-fsrs v0.3.2` to avoid CGO.  
-Switched SQLite journal_mode to MEMORY after tmpfs WAL errors.  
-Next: prototype rootless sandbox runner.  
--->
+#### 2025-08-07
+- Added `examples/scheduler_demo.go` to demonstrate FSRS functionality
+- Verified scheduler works correctly with different rating outcomes
