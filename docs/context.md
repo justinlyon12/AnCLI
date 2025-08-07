@@ -2,31 +2,43 @@
 
 ## Vision  
 **AnCLI** is a *CLI-first* flash-card platform that teaches real-world command-line skills with **spaced repetition**.  
-Each card executes an actual shell command in a **rootless OCI container**, grades the outcome (regex match or exit-status), and reschedules the card with the **FSRS 4-parameter** algorithm.  
-Default sandbox hardening:
+Each card executes an actual shell command in a **rootless OCI container**, lets the user grade themselves (`Again | Hard | Good | Easy`), and reschedules with the **FSRS 4-parameter** algorithm.  
 
+**Default sandbox hardening:**
 - `cap-drop=ALL`
-- `--network none`
+- `--network none` (cards must explicity opt-in to networking; the TUI shows a red banner when enabled)
 - read-only root filesystem
 - `tmpfs /tmp`
-- automatic container cleanup on Ctrl-C or timeout
+- automatic cleanup on Ctrl-C or timeout
 
 ---
 
 ## Core Architecture  
 
-| Layer                  | Choice / Notes                                                |
-|------------------------|--------------------------------------------------------------|
-| **Language**           | Go = 1.24.4                                                  |
-| **UI**                 | Bubble Tea TUI → toggle off with `--no-tui` for headless     |
-| **Persistence**        | SQLite via `modernc.org/sqlite` (pure Go, no CGO)            |
-| **Scheduler**          | FSRS (4-parameter)                                           |
-| **Sandbox abstraction**| `ancli/sandbox` Go interface with pluggable **drivers**      |
-| **First-class driver** | **Podman** (rootless, daemonless, cross-platform)            |
-| **Optional drivers**   | Docker Engine / Colima, Devcontainer, custom runners         |
-| **Deck layout**        | `<deck>/deck.yaml` + `cards.csv` + POSIX hook scripts        |
+| Layer                  | Choice                                                       | Notes
+|------------------------|--------------------------------------------------------------|---------------|
+| **Language**           | Go 1.24.4                                                    |Single static binary & first class OCI ecosytem                                  |
+| **CLI/Config**         | Cobra + Viper                                                |Sub-commands (`review`, `optimize`, `deck`, etc.) & env/config handling.         |
+| **UI**                 | Bubble Tea TUI (opt-out via `--no-tui`)                      |Mature TUI the integrates cleanly with cobra                                     |
+| **Persistence**        | SQLite via `modernc.org/sqlite`                              |Pure Go, no CGO to keep build simple                                             |
+| **Scheduler**          | FSRS (4-parameter)                                           |Current best schedular (https://github.com/open-spaced-repetition/fsrs4anki.git) |
+| **Optimizer**          | Python FSRS Optimizer                                        |Future: Optional optimizer for the FSRS algorithm (link above) no currently implmeented in Go. Plan it ot implmeent later to export review history, run python optimizer, and re-import tuned parameters.|
+| **Sandbox abstraction**| `interal/sandbox`                                            |Drivers self-register via `init()`                                               |
+| **First-class driver** | Podman                                                       |Rootless, daemonless, cross-platform                                             |
+| **Optional drivers**   | Docker Engine / Colima, Devcontainer, custom runners         |Swapablle through config flag                                                    |
+| **Packaging**          | .ancli tarballs                                              |deck.yaml, cards.csv, optional assets/                                           |
 
 > **Modularity goal:** Every sandbox driver lives in its own Go package and self-registers via `init()`, so new back-ends can be dropped in without touching core logic.
+---
+## CLI Surface (Cobra)
+    ```
+    ancli review         # headless loop (TUI appears unless --no-tui)
+    ancli optimize       # future: run offline FSRS parameter fitting
+    ancli deck lint      # validate deck structure & hooks
+    ancli deck pack      # build .ancli tarball
+    ancli deck install   # unpack to ~/.ancli/decks
+    ```
+All commands respect --config, env vars, and global flags (e.g., --sandbox=docker).
 ---
 
 ## MVP Roadmap  
@@ -40,10 +52,10 @@ Default sandbox hardening:
 
 ### Post-MVP Enhancements  
 
-- Docker/Colima driver for users already on Docker  
-- Devcontainer driver for VS Code users  
-- WebAssembly sandbox PoC  
+- Docker driver for users already on Docker  
+- Devcontainer driver for VS Code users    
 - Cloud sync & shared-decks marketplace  
+- Add optimizer
 
 ---
 
@@ -56,8 +68,16 @@ Default sandbox hardening:
 
 
 ## Development Journal  
+<!--  
+Template for future entries:
 
-### 2025-07-08  
+#### 2025-07-09  
+Finished wiring FSRS unit tests; pinned `go-fsrs v0.3.2` to avoid CGO.  
+Switched SQLite journal_mode to MEMORY after tmpfs WAL errors.  
+Next: prototype rootless sandbox runner.  
+-->
+### 2025 July (07)
+#### 2025-07-08  
 - Set up github CLI (logged into my gh account via `gh auth login`)
 - Added the remote repo: `git clone git@github.com:justinlyon12/AnCLI.git`
 - Initaized the golang project: `go mod init github.com/justinlyon12/ancli`
