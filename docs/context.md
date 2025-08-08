@@ -10,7 +10,7 @@ Each card executes an actual shell command in a **rootless OCI container**, lets
 - read-only root filesystem
 - `tmpfs /tmp`
 - automatic cleanup on Ctrl-C or timeout
-
+- configurable resource guards per card: time, CPU/mem caps
 ---
 
 ## Core Architecture  
@@ -38,7 +38,7 @@ Each card executes an actual shell command in a **rootless OCI container**, lets
     ancli deck pack      # build .ancli tarball
     ancli deck install   # unpack to ~/.ancli/decks
     ```
-All commands respect --config, env vars, and global flags (e.g., --sandbox=docker).
+- All commands respect --config, env vars, and global flags (e.g., --sandbox=docker).
 ---
 
 ## MVP Roadmap  
@@ -53,7 +53,8 @@ All commands respect --config, env vars, and global flags (e.g., --sandbox=docke
 ### Post-MVP Enhancements  
 
 - Docker driver for users already on Docker  
-- Devcontainer driver for VS Code users    
+- Devcontainer driver for VS Code users
+- Lab runner driver for small multi-container topologies   
 - Cloud sync & shared-decks marketplace  
 - Add optimizer
 
@@ -63,9 +64,32 @@ All commands respect --config, env vars, and global flags (e.g., --sandbox=docke
 
 1. **Rootless by default** – zero-trust, no privileged daemon.  
 2. **Plug-and-play back-ends** – swap Podman for Docker with a single config flag.  
-3. **100 % reproducible** – every card runs in an isolated container to guarantee deterministic grading.  
+3. **Reproducible** – Cards run in an isolated container to provide deterministic behavior.  
 4. **TUI optional** – accessible via SSH or in CI pipelines.  
+5. **Determinism > realism** - prefer reproducable, single-container labs to fragile, complex topologies.
 
+### Personas & High‑Value Decks (near‑term)
+**Personas**: CLI beginners/upgraders; DevOps/SRE/sysadmins; network engineers; team leads/trainers; security‑minded orgs; content authors.  
+
+**Potential Deck areas**:
+- Linux ops drills (systemd, journald, files/ACLs) - default safe    
+- Git for operators (rebase, bisect, conflict surgery) - default safe
+- `jq`/`yq` pipelines for K8s manifests, AWS JSON, logs - default safe
+- Kubernetes day‑2 (`kubectl` queries, rollouts, debug) - default safe
+- Terraform basics with local providers - default safe
+- Network automation 101 (`scrapli`/`netmiko` with recorded outputs) - default safe
+- FRR/BIRD single‑node routing lab - requires `--network` and possibly lifted caps
+- Vendor NOS syntax/show triage (XRd/cRPD/cEOS) - requires `--network` and possibly lifted caps & user‑supplied/licensed image
+
+### UI/UX Decisions (v0.1)
+- **Fast path to reps:** `ancli review` → queue opens immediately; time‑to‑first‑rep < 5 minutes.    
+- **Safety ribbon:** top status shows safety level and why (e.g., net‑enabled due to `aws s3 ls`).
+- **Minimal card chrome:** prompt, shell pane (stdout/stderr tail), rating row (`1–4` or `A/H/G/E`).
+- **Helpful controls:** _hint_, _reset environment_, _view solution_, _open reference_ (hotkeys documented).
+- **Interruptible:** `q` to pause/park card, `s` to skip/flag; resume exactly where left.
+- **Author affordances:** `?` toggles card metadata (image digest, caps, env). Hidden by default.
+- **Headless parity:** every TUI action has a CLI flag for SSH/CI use.
+- **Failure messages:** human‑readable guidance (e.g., “Podman missing. Run: …”), not stack traces.
 
 ## Development Journal  
 <!--  
@@ -128,3 +152,28 @@ Tree:
 #### 2025-08-07
 - Added `examples/scheduler_demo.go` to demonstrate FSRS functionality
 - Verified scheduler works correctly with different rating outcomes
+- **Completed SQLite storage layer implementation:**
+  - Created comprehensive data models (`internal/storage/models.go`)
+  - Implemented database schema with auto-migration (`internal/storage/migrations.go`)
+  - Built full CRUD operations for decks, cards, reviews, and assets (`internal/storage/sqlite.go`)
+  - Added FSRS integration helpers for seamless conversion (`internal/storage/fsrs_helpers.go`)
+  - Achieved 100% test coverage with comprehensive unit tests (`internal/storage/sqlite_test.go`)
+  - Created storage + FSRS integration demo (`examples/storage_demo.go`)
+- **Key architectural decisions:**
+  - Used raw SQL queries for optimal performance
+  - Auto-migration on database connection for zero-config setup
+  - Embedded FSRS state in cards table for efficient queries
+  - Symbolic linking approach for card prerequisites
+  - Deck-level asset storage with filename-based referencing
+
+**Outstanding TODOs for Storage Layer:**
+    1. Prerequisite handling: JSON parsing and prerequisite card fetching logic
+    2. JSON field validation: Proper parsing/validation for tags, environment_vars, capabilities, prerequisites
+    3. Deck versioning: Implement deck update diff tracking and migration logic
+    4. FSRS parameter customization: Per-deck FSRS parameter loading and application
+    5. Asset extraction workflow: Integration with sandbox execution (extract assets to temp dirs)
+    6. Review analytics: Additional queries for learning statistics and progress tracking
+    7. Database optimization: Connection pooling and query performance tuning for large datasets
+
+Qutstanding question: Given that AnCLI centers around executing commands, do we need a run_logs table in our DB to track things like stdout, stderr, exit, resources, etc.?
+Next:Ready for Cobra CLI framework and Podman sandbox runner
