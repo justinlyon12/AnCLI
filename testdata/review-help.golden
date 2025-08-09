@@ -1,0 +1,24 @@
+Start an interactive flashcard review session. Cards will be presented one at a time,
+executed in a secure container, and you'll rate your performance for spaced repetition scheduling.
+
+The session continues until all due cards are reviewed or you quit with 'q'.
+
+Usage:
+  ancli review [flags]
+
+Flags:
+      --deck-id int     review cards from specific deck ID (0 = all decks)
+      --due-only        only review cards that are due
+  -h, --help            help for review
+      --max-cards int   maximum cards per session (0 = unlimited) (default 20)
+      --new-only        only review new cards
+      --no-network      disable network access (safer) (default true)
+      --shuffle         randomize card order (default true)
+
+Global Flags:
+      --config string           config file (default is $HOME/.ancli/ancli.yaml)
+      --database-path string    database file path
+      --log-json                log in JSON format
+      --log-level string        log level (debug, info, warn, error) (default "info")
+      --sandbox-driver string   sandbox driver (podman, docker) (default "podman")
+      --sandbox-network         enable network access for sandbox
