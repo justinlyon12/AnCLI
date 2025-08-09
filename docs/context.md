@@ -192,6 +192,11 @@ Next:Ready for Cobra CLI framework and Podman sandbox runner
   - Thread-safe container state management with mutex protection
   - Structured logging with correlation IDs for traceability
   - Error handling with wrapped errors and user-facing messages
+- **Review loop architecture documented in [DESIGN-review-loop.md](DESIGN-review-loop.md):**
+  - Hexagonal architecture with ReviewService coordinating Storage, Scheduler, and Sandbox ports
+  - Session management with in-memory state tracking and proper cleanup
+  - Comprehensive security model with container hardening and network opt-in
+  - Configuration hierarchy and data flow documentation
 - **Security features implemented:**
   - Rootless execution by default
   - All capabilities dropped (`--cap-drop=ALL`)
@@ -209,4 +214,40 @@ Next:Ready for Cobra CLI framework and Podman sandbox runner
   - Integration tests ready (conditional on Podman availability)
   - Race detector verification: clean (no race conditions)
 
-Next: Cobra CLI framework with review command to integrate FSRS, storage, and sandbox layers
+- **Implemented Cobra CLI framework with headless review loop:**
+  - Created new CLI structure in `cmd/ancli/` (renamed from flashcli)
+  - Built comprehensive configuration system with Viper (`internal/config/config.go`)
+    - Secure defaults with proper path expansion and environment variable support
+    - Fixed environment variable binding for nested keys (ANCLI_DATABASE_PATH, etc.)
+    - Database directory creation with 0700 permissions for security
+  - Implemented review service port/adapter architecture (`internal/review/`)
+    - Clean domain types in `internal/domain/types.go` for shared Rating/CardState/ExecutionResult
+    - ReviewService port interface with session management 
+    - Service implementation integrating storage, scheduler, and sandbox layers
+    - Proper error handling with wrapped errors and user-facing messages
+  - Built complete review command (`cmd/ancli/review.go`)
+    - Interactive review session with card presentation and command execution
+    - Integration with FSRS scheduling and SQLite storage
+    - Secure sandbox execution with rootless Podman containers
+    - User rating input (1-4 / Again/Hard/Good/Easy) with validation
+    - Session statistics and cleanup
+  - **All quality gates achieved:**
+    - `make ci` passes: tests, linting, race detector, build
+    - 100% test coverage maintained on existing domain/storage/sandbox layers
+    - Hexagonal architecture principles preserved
+    - Security hardening: rootless execution, capability drops, RO filesystem
+    - Structured logging with correlation IDs
+    - Error handling with %w wrapping and user-friendly messages
+- **Key architectural decisions:**
+  - Used domain types (`internal/domain/`) to avoid adapter dependencies in ports
+  - Reused existing storage FSRS conversion methods (ToFSRSCard/UpdateFromFSRSCard)
+  - Simple string-to-[]string command parsing with `strings.Fields()` 
+  - In-memory session management (suitable for single-user CLI tool)
+  - Graceful JSON parsing with ignored errors for non-critical fields
+- **Ready for production use:** `ancli review` command fully functional
+  - Connects all layers: storage, scheduler, sandbox, configuration
+  - Can execute shell commands in secure containers
+  - Updates FSRS scheduling based on user performance ratings
+  - Records detailed review history and timing metrics
+
+Next: Bubble Tea TUI wrapper and example decks
