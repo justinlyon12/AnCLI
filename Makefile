@@ -2,14 +2,14 @@
 
 BIN := ./bin
 PKG := ./...
-MAIN := ./cmd/flashcli
+MAIN := ./cmd/ancli
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | \
 		awk -F':.*?## ' '{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
-build: ## Compile flashcli
-	go build -o $(BIN)/flashcli $(MAIN)
+build: ## Compile ancli
+	go build -o $(BIN)/ancli $(MAIN)
 
 test: ## Run unit tests
 	go test -race $(PKG)
