@@ -275,6 +275,35 @@ func (db *DB) GetDueCards() ([]*Card, error) {
 	return cards, nil
 }
 
+// UpdateCard updates a card's full state
+func (db *DB) UpdateCard(card *Card) error {
+	query := `
+		UPDATE cards SET 
+			title = ?, description = ?, command = ?, working_dir = ?,
+			environment_vars = ?, image = ?, timeout = ?, network_enabled = ?,
+			capabilities = ?, difficulty_level = ?, tags = ?, prerequisites = ?,
+			prerequisite_mode = ?, fsrs_due = ?, fsrs_stability = ?, fsrs_difficulty = ?,
+			fsrs_elapsed_days = ?, fsrs_scheduled_days = ?, fsrs_reps = ?,
+			fsrs_lapses = ?, fsrs_state = ?, fsrs_last_review = ?,
+			updated_at = datetime('now')
+		WHERE id = ?
+	`
+
+	_, err := db.conn.Exec(query,
+		card.Title, card.Description, card.Command, card.WorkingDir,
+		card.EnvironmentVars, card.Image, card.Timeout, card.NetworkEnabled,
+		card.Capabilities, card.DifficultyLevel, card.Tags, card.Prerequisites,
+		card.PrerequisiteMode, card.FSRSDue, card.FSRSStability, card.FSRSDifficulty,
+		card.FSRSElapsedDays, card.FSRSScheduledDays, card.FSRSReps,
+		card.FSRSLapses, card.FSRSState, card.FSRSLastReview, card.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update card: %w", err)
+	}
+
+	return nil
+}
+
 // UpdateCardFSRS updates a card's FSRS state after review
 func (db *DB) UpdateCardFSRS(card *Card) error {
 	query := `
@@ -296,6 +325,86 @@ func (db *DB) UpdateCardFSRS(card *Card) error {
 	}
 
 	return nil
+}
+
+// GetCardsByDeck retrieves all cards for a specific deck
+func (db *DB) GetCardsByDeck(deckID int) ([]*Card, error) {
+	query := `
+		SELECT id, deck_id, card_key, title, description, command, working_dir,
+			environment_vars, image, timeout, network_enabled, capabilities,
+			difficulty_level, tags, prerequisites, prerequisite_mode,
+			fsrs_due, fsrs_stability, fsrs_difficulty, fsrs_elapsed_days,
+			fsrs_scheduled_days, fsrs_reps, fsrs_lapses, fsrs_state, fsrs_last_review,
+			created_at, updated_at
+		FROM cards WHERE deck_id = ?
+		ORDER BY card_key
+	`
+
+	rows, err := db.conn.Query(query, deckID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cards by deck: %w", err)
+	}
+	defer rows.Close()
+
+	var cards []*Card
+	for rows.Next() {
+		card := &Card{}
+		err := rows.Scan(
+			&card.ID, &card.DeckID, &card.CardKey, &card.Title, &card.Description,
+			&card.Command, &card.WorkingDir, &card.EnvironmentVars, &card.Image,
+			&card.Timeout, &card.NetworkEnabled, &card.Capabilities, &card.DifficultyLevel,
+			&card.Tags, &card.Prerequisites, &card.PrerequisiteMode, &card.FSRSDue,
+			&card.FSRSStability, &card.FSRSDifficulty, &card.FSRSElapsedDays,
+			&card.FSRSScheduledDays, &card.FSRSReps, &card.FSRSLapses, &card.FSRSState,
+			&card.FSRSLastReview, &card.CreatedAt, &card.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan card: %w", err)
+		}
+		cards = append(cards, card)
+	}
+
+	return cards, nil
+}
+
+// GetAllCards retrieves all cards
+func (db *DB) GetAllCards() ([]*Card, error) {
+	query := `
+		SELECT id, deck_id, card_key, title, description, command, working_dir,
+			environment_vars, image, timeout, network_enabled, capabilities,
+			difficulty_level, tags, prerequisites, prerequisite_mode,
+			fsrs_due, fsrs_stability, fsrs_difficulty, fsrs_elapsed_days,
+			fsrs_scheduled_days, fsrs_reps, fsrs_lapses, fsrs_state, fsrs_last_review,
+			created_at, updated_at
+		FROM cards
+		ORDER BY deck_id, card_key
+	`
+
+	rows, err := db.conn.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all cards: %w", err)
+	}
+	defer rows.Close()
+
+	var cards []*Card
+	for rows.Next() {
+		card := &Card{}
+		err := rows.Scan(
+			&card.ID, &card.DeckID, &card.CardKey, &card.Title, &card.Description,
+			&card.Command, &card.WorkingDir, &card.EnvironmentVars, &card.Image,
+			&card.Timeout, &card.NetworkEnabled, &card.Capabilities, &card.DifficultyLevel,
+			&card.Tags, &card.Prerequisites, &card.PrerequisiteMode, &card.FSRSDue,
+			&card.FSRSStability, &card.FSRSDifficulty, &card.FSRSElapsedDays,
+			&card.FSRSScheduledDays, &card.FSRSReps, &card.FSRSLapses, &card.FSRSState,
+			&card.FSRSLastReview, &card.CreatedAt, &card.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan card: %w", err)
+		}
+		cards = append(cards, card)
+	}
+
+	return cards, nil
 }
 
 // CreateReview records a review session
