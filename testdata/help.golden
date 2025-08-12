@@ -8,6 +8,7 @@ Usage:
 
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
+  deck        Manage AnCLI decks
   help        Help about any command
   review      Start a flashcard review session
 

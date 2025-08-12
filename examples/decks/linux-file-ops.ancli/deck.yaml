@@ -1,0 +1,40 @@
+# Deck Metadata
+name: linux-file-ops
+version: 1.0.0
+author: AnCLI Team
+description: Master essential Linux file and directory operations
+tags: [linux, files, directories, permissions, cli-basics]
+license: MIT
+difficulty_range: [1, 4]
+
+# Container Configuration
+container:
+  image: alpine:3.18
+  timeout: 30
+  network: false
+  environment:
+    USER: student
+    HOME: /home/student
+    TERM: xterm-256color
+    LANG: en_US.UTF-8
+  working_dir: /workspace
+
+# Cleanup behavior
+cleanup:
+  mode: auto # auto | manual | none
+  preserve_on_fail: true # Keep state if user rates "Again"
+  timeout: 10 # Seconds allowed for cleanup
+
+# FSRS Parameters (optional - uses optimal defaults if omitted)
+fsrs:
+  request_retention: 0.9
+  maximum_interval: 365
+  initial_difficulty: 3.4
+
+# Deck Settings
+settings:
+  shuffle_cards: false # Keep logical order for this tutorial deck
+  prerequisite_mode: enforce # enforce | link | none
+  show_solutions: true # Allow solutions to be shown
+  show_explanations: true # Allow explanations to be shown
+  auto_cleanup: true # Run cleanup automatically

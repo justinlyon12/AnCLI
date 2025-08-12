@@ -46,9 +46,10 @@ Each card executes an actual shell command in a **rootless OCI container**, lets
 0. **Repo scaffold & CI** (Go 1.24.4 + GitHub Actions)  
 1. **FSRS engine** and **SQLite storage** with 100 % unit-test coverage  
 2. **Rootless Podman sandbox runner** (Alpine base, 5 s timeout)  
-3. **Headless review loop** (pure CLI)  
-4. **Bubble Tea TUI wrapper** (respect `--no-tui`)  
-5. **Deck-lint tool** and example decks  
+3. **Headless review loop** (pure CLI) 
+4. **Deck-lint tool** and example decks   
+5. **Bubble Tea TUI wrapper** (respect `--no-tui`)  
+
 
 ### Post-MVP Enhancements  
 
@@ -143,6 +144,7 @@ Tree:
 ├── Makefile
 └── README.md
 
+### 2025 August (08)
 #### 2025-08-06
 - Implemented FSRS scheduler in `internal/scheduler/fsrs.go` using `go-fsrs/v3`
 - Changed from auto-grading to manual `Again|Hard|Good|Easy` ratings per FSRS philosophy
@@ -250,4 +252,41 @@ Next:Ready for Cobra CLI framework and Podman sandbox runner
   - Updates FSRS scheduling based on user performance ratings
   - Records detailed review history and timing metrics
 
-Next: Bubble Tea TUI wrapper and example decks
+#### 2025-08-12
+**Completed Deck Specification and Validation System:**
+- **Comprehensive deck format specification**:
+  - `deck.yaml` format with metadata, container config, cleanup behavior, FSRS params, learning settings
+  - `cards.csv` format with all necessary fields: key, title, command, description, setup, cleanup, prerequisites, verify, hint, solution, explanation, difficulty, tags
+  - Asset management system for supporting files
+- **Complete example deck**: "Linux File Operations" with 20 cards demonstrating:
+  - Command dependencies and state management through prerequisites
+  - Progressive difficulty from basic (ls, mkdir) to advanced (tar, symlinks)
+  - Self-verification patterns teaching users to check their own work
+  - Comprehensive setup/cleanup for repeatable practice
+  - Multiple solution alternatives and detailed explanations
+- **Robust validation system** (`internal/deck/validator.go`):
+  - Structure validation (required files, format checking)
+  - Content validation (required fields, duplicate keys, circular dependencies)
+  - Security warnings (dangerous commands, network usage)
+  - Usability checks (missing hints/explanations, difficulty progression)
+  - User-friendly error messages with specific line/column references
+- **CLI integration** (`cmd/ancli/deck.go`):
+  - `ancli deck lint` command with verbose output and JSON support
+  - Clean integration with existing Cobra command structure
+- **Complete documentation** (`docs/DECK_AUTHORING.md`):
+  - Quick start guide for new deck authors
+  - Comprehensive reference covering all features
+  - Best practices and common patterns
+  - Troubleshooting guide and validation error reference
+
+**Key innovations in the specification**:
+1. **Prerequisites for command dependencies**: Not learning order, but ensuring required state exists (e.g., directory must exist before cd'ing into it)
+2. **Self-verification commands**: Teaching users how to check their own work rather than automated validation
+3. **Progressive state management**: Setup/cleanup commands enable repeatable practice
+4. **Security-first container configuration**: Secure defaults with explicit opt-in for elevated permissions
+5. **Multiple solutions support**: Accommodates different valid approaches to the same task
+6. **Comprehensive explanations**: Focus on understanding output, not just memorizing commands
+
+**Validation Results**: Example deck passes all validation checks (0 errors, 0 warnings)
+
+Next: Implement TUI with Bubble Tea.

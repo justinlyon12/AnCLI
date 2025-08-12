@@ -24,6 +24,7 @@ the FSRS 4-parameter algorithm.`,
 
 	// Add subcommands
 	cmd.AddCommand(NewReviewCmd(loader))
+	cmd.AddCommand(NewDeckCmd())
 
 	return cmd
 }
