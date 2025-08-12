@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/spf13/cobra"
+	"github.com/justinlyon12/ancli/internal/config"
 )
 
 // TestGoldenFiles verifies CLI output matches golden files
@@ -30,46 +30,28 @@ func TestGoldenFiles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a new root command for each test to avoid state pollution
-			cmd := &cobra.Command{
-				Use:   "ancli",
-				Short: "A flashcard platform for learning and practicing CLI with spaced repetition",
-				Long: `AnCLI is a CLI-first flashcard platform that teaches real-world command-line skills
-with spaced repetition. The use must execute an actual shell command in a rootless OCI container
-for each card, let the user grade themselves (Again | Hard | Good | Easy), and reschedules with 
-the FSRS 4-parameter algorithm.`,
-			}
-
-			// Add global flags
-			cmd.PersistentFlags().String("config", "", "config file (default is $HOME/.ancli/ancli.yaml)")
-			cmd.PersistentFlags().String("log-level", "info", "log level (debug, info, warn, error)")
-			cmd.PersistentFlags().Bool("log-json", false, "log in JSON format")
-			cmd.PersistentFlags().String("database-path", "", "database file path")
-			cmd.PersistentFlags().String("sandbox-driver", "podman", "sandbox driver (podman, docker)")
-			cmd.PersistentFlags().Bool("sandbox-network", false, "enable network access for sandbox")
-
-			// Add review subcommand
-			reviewCmd := &cobra.Command{
-				Use:   "review",
-				Short: "Start a flashcard review session",
-				Long: `Start an interactive flashcard review session. Cards will be presented one at a time,
-executed in a secure container, and you'll rate your performance for spaced repetition scheduling.
-
-The session continues until all due cards are reviewed or you quit with 'q'.`,
-				Run: func(cmd *cobra.Command, args []string) {
-					// No-op for testing
+			// Create test configuration
+			testConfig := &config.Config{
+				Database: config.DatabaseConfig{
+					Path: "/tmp/test.db",
 				},
+				Sandbox: config.SandboxConfig{
+					Driver:         "podman",
+					DefaultImage:   "alpine:3.18",
+					NetworkEnabled: false,
+				},
+				LogLevel: "info",
+				LogJSON:  false,
 			}
 
-			// Add review-specific flags
-			reviewCmd.Flags().Int("deck-id", 0, "review cards from specific deck ID (0 = all decks)")
-			reviewCmd.Flags().Int("max-cards", 20, "maximum cards per session (0 = unlimited)")
-			reviewCmd.Flags().Bool("new-only", false, "only review new cards")
-			reviewCmd.Flags().Bool("due-only", false, "only review cards that are due")
-			reviewCmd.Flags().Bool("shuffle", true, "randomize card order")
-			reviewCmd.Flags().Bool("no-network", true, "disable network access (safer)")
+			// Create test config loader for help output
+			// We don't need real storage/sandbox connections for help text
+			testLoader := &TestConfigLoader{
+				Config: testConfig,
+			}
 
-			cmd.AddCommand(reviewCmd)
+			// Create command using the same factory function as production
+			cmd := NewRootCmd(testLoader)
 
 			// Capture output
 			var buf bytes.Buffer
@@ -96,6 +78,66 @@ The session continues until all due cards are reviewed or you quit with 'q'.`,
 
 				// Offer to update golden file (useful during development)
 				t.Logf("To update golden file, run: echo %q > %s", actual, goldenPath)
+			}
+		})
+	}
+}
+
+// TestMainRun tests the main run function with different scenarios
+func TestMainRun(t *testing.T) {
+	tests := []struct {
+		name             string
+		configLoader     ConfigLoader
+		expectedExitCode int
+		expectError      bool
+	}{
+		{
+			name: "config load failure",
+			configLoader: &TestConfigLoader{
+				Config: nil, // Will cause error
+			},
+			expectedExitCode: 1,
+			expectError:      true,
+		},
+		{
+			name: "valid config with help",
+			configLoader: &TestConfigLoader{
+				Config: &config.Config{
+					Database: config.DatabaseConfig{
+						Path: "/tmp/test.db",
+					},
+					Sandbox: config.SandboxConfig{
+						Driver: "podman",
+					},
+				},
+			},
+			expectedExitCode: 0,
+			expectError:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Capture stderr to verify error messages
+			originalStderr := os.Stderr
+			_, w, _ := os.Pipe()
+			os.Stderr = w
+
+			// Note: We can't easily test the full run() function here because
+			// it would try to create real storage connections. In a full implementation,
+			// you'd want to add dependency injection for storage/sandbox factories too.
+
+			// For now, just test the config loading part
+			_, err := tt.configLoader.Load()
+
+			w.Close()
+			os.Stderr = originalStderr
+
+			if tt.expectError && err == nil {
+				t.Errorf("Expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
 			}
 		})
 	}

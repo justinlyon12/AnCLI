@@ -13,75 +13,54 @@ import (
 	"github.com/justinlyon12/ancli/internal/domain"
 	"github.com/justinlyon12/ancli/internal/review"
 	"github.com/justinlyon12/ancli/internal/sandbox"
-	"github.com/justinlyon12/ancli/internal/sandbox/podman"
-	"github.com/justinlyon12/ancli/internal/scheduler"
-	"github.com/justinlyon12/ancli/internal/storage"
 )
 
-var reviewCmd = &cobra.Command{
-	Use:   "review",
-	Short: "Start a flashcard review session",
-	Long: `Start an interactive flashcard review session. Cards will be presented one at a time,
+// NewReviewCmd creates a new review command with dependency injection
+func NewReviewCmd(loader ConfigLoader) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "review",
+		Short: "Start a flashcard review session",
+		Long: `Start an interactive flashcard review session. Cards will be presented one at a time,
 executed in a secure container, and you'll rate your performance for spaced repetition scheduling.
 
 The session continues until all due cards are reviewed or you quit with 'q'.`,
-	RunE: runReview,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Initialize app only when running the command
+			app, err := initializeApp(loader)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := app.Close(); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to cleanup application: %v\n", err)
+				}
+			}()
+
+			return runReview(cmd, args, app)
+		},
+	}
+
+	// Add review-specific flags
+	cmd.Flags().Int("deck-id", 0, "review cards from specific deck ID (0 = all decks)")
+	cmd.Flags().Int("max-cards", 20, "maximum cards per session (0 = unlimited)")
+	cmd.Flags().Bool("new-only", false, "only review new cards")
+	cmd.Flags().Bool("due-only", false, "only review cards that are due")
+	cmd.Flags().Bool("shuffle", true, "randomize card order")
+	cmd.Flags().Bool("no-network", true, "disable network access (safer)")
+
+	return cmd
 }
 
-var (
-	reviewDeckID    int
-	reviewMaxCards  int
-	reviewNewOnly   bool
-	reviewDueOnly   bool
-	reviewShuffle   bool
-	reviewNoNetwork bool
-)
-
-func init() {
-	rootCmd.AddCommand(reviewCmd)
-
-	// Review-specific flags
-	reviewCmd.Flags().IntVar(&reviewDeckID, "deck-id", 0, "review cards from specific deck ID (0 = all decks)")
-	reviewCmd.Flags().IntVar(&reviewMaxCards, "max-cards", 20, "maximum cards per session (0 = unlimited)")
-	reviewCmd.Flags().BoolVar(&reviewNewOnly, "new-only", false, "only review new cards")
-	reviewCmd.Flags().BoolVar(&reviewDueOnly, "due-only", false, "only review cards that are due")
-	reviewCmd.Flags().BoolVar(&reviewShuffle, "shuffle", true, "randomize card order")
-	reviewCmd.Flags().BoolVar(&reviewNoNetwork, "no-network", true, "disable network access (safer)")
-}
-
-func runReview(cmd *cobra.Command, args []string) error {
+func runReview(cmd *cobra.Command, args []string, app *App) error {
 	ctx := context.Background()
 
-	// Initialize storage
-	dbPath, err := cfg.GetDatabasePath()
-	if err != nil {
-		return fmt.Errorf("failed to get database path: %w", err)
-	}
-
-	db, err := storage.NewDB(dbPath)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
-	}
-	defer db.Close()
-
-	// Initialize scheduler
-	sched := scheduler.NewScheduler()
-
-	// Initialize sandbox
-	var sb sandbox.Sandbox
-	switch cfg.Sandbox.Driver {
-	case "podman":
-		var err error
-		sb, err = podman.New()
-		if err != nil {
-			return fmt.Errorf("failed to create podman driver: %w", err)
-		}
-	default:
-		return fmt.Errorf("unsupported sandbox driver: %s", cfg.Sandbox.Driver)
-	}
-
-	// Initialize review service
-	reviewService := review.NewService(db, sched, sb)
+	// Get flag values from the command
+	reviewDeckID, _ := cmd.Flags().GetInt("deck-id")
+	reviewMaxCards, _ := cmd.Flags().GetInt("max-cards")
+	reviewNewOnly, _ := cmd.Flags().GetBool("new-only")
+	reviewDueOnly, _ := cmd.Flags().GetBool("due-only")
+	reviewShuffle, _ := cmd.Flags().GetBool("shuffle")
+	reviewNoNetwork, _ := cmd.Flags().GetBool("no-network")
 
 	// Set up session options
 	var deckID *int
@@ -100,7 +79,7 @@ func runReview(cmd *cobra.Command, args []string) error {
 
 	// Start session
 	fmt.Println("🚀 Starting review session...")
-	session, err := reviewService.StartSession(ctx, opts)
+	session, err := app.ReviewService.StartSession(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to start review session: %w", err)
 	}
@@ -118,7 +97,7 @@ func runReview(cmd *cobra.Command, args []string) error {
 
 	for session.CardsRemaining > 0 {
 		// Get next card
-		card, err := reviewService.GetNextCard(ctx, session.ID)
+		card, err := app.ReviewService.GetNextCard(ctx, session.ID)
 		if err != nil {
 			if strings.Contains(err.Error(), "no more cards") {
 				fmt.Println("✅ No more cards to review!")
@@ -167,7 +146,7 @@ func runReview(cmd *cobra.Command, args []string) error {
 			Environment:    card.EnvironmentVars,
 		}
 
-		result, err := sb.Run(ctx, sandboxConfig)
+		result, err := app.Sandbox.Run(ctx, sandboxConfig)
 		if err != nil {
 			fmt.Printf("❌ Execution failed: %v\n", err)
 			// Still allow rating for learning purposes
@@ -230,7 +209,7 @@ func runReview(cmd *cobra.Command, args []string) error {
 		}
 
 		// Submit review
-		err = reviewService.SubmitReview(ctx, session.ID, card.ID, rating, executionResult)
+		err = app.ReviewService.SubmitReview(ctx, session.ID, card.ID, rating, executionResult)
 		if err != nil {
 			return fmt.Errorf("failed to submit review: %w", err)
 		}
@@ -243,17 +222,12 @@ func runReview(cmd *cobra.Command, args []string) error {
 cleanup:
 	// End session and show stats
 	fmt.Println("\n📊 Finalizing session...")
-	stats, err := reviewService.EndSession(ctx, session.ID)
+	stats, err := app.ReviewService.EndSession(ctx, session.ID)
 	if err != nil {
 		fmt.Printf("Warning: Failed to get session stats: %v\n", err)
 	} else {
 		fmt.Printf("🎯 Session completed in %v\n", stats.Duration.Round(time.Second))
 		fmt.Printf("📈 Cards reviewed: %d\n", stats.CardsReviewed)
-	}
-
-	// Cleanup sandbox
-	if err := sb.Cleanup(ctx); err != nil {
-		fmt.Printf("Warning: Failed to cleanup sandbox: %v\n", err)
 	}
 
 	fmt.Println("👋 Thanks for studying!")
